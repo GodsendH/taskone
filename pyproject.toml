@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "noisy-constrained-optimization"
+version = "0.1.0"
+description = "Noisy constrained optimization experiments for SA, GA, and adaptive resampling search."
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.23",
+  "scipy>=1.9",
+  "pandas>=1.5",
+  "matplotlib>=3.6",
+  "seaborn>=0.12",
+  "pyyaml>=6.0",
+  "tqdm>=4.64",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

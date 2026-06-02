@@ -1,0 +1,29 @@
+experiment:
+  runs: 50
+  budget: 2000
+  seed: 20260602
+  algorithms: [SA, GA, ARS]
+noise:
+  mode: hetero
+algorithms:
+  SA:
+    initial_temp: 1.0
+    cooling_rate: 0.995
+    step_size: 0.18
+    min_temp: 0.0001
+  GA:
+    population_size: 40
+    elite_fraction: 0.10
+    crossover_rate: 0.85
+    mutation_step: 0.20
+    mutation_decay: 0.985
+    min_mutation_step: 0.015
+    tournament_size: 3
+  ARS:
+    initial_temp: 0.8
+    cooling_rate: 0.996
+    initial_step: 0.20
+    min_step: 0.015
+    base_samples: 2
+    max_samples: 8
+    ambiguity_z: 1.0
