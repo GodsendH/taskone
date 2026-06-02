@@ -43,7 +43,7 @@ python scripts/make_figures.py
 
 - `results/main_summary.csv`：三算法 50 次最终结果。
 - `results/main_history.csv`：收敛曲线数据。
-- `results/statistics.csv`：中位数、IQR、可行率。
+- `results/statistics.csv`：中位数、IQR、最终可行率、投影前候选可行率。
 - `results/wilcoxon.csv`：Wilcoxon 符号秩检验。
 - `results/sensitivity.csv`：SA/GA 参数敏感性数据。
 - `results/noise_study_summary.csv`：异方差与同方差噪声对比。
@@ -54,6 +54,8 @@ python scripts/make_figures.py
 - `F(x)` 每次调用都会重新采样独立高斯噪声，并严格计入预算。
 - 真实 `f(x)` 仅用于实验记录和报告评价，不计入 2000 次噪声评估预算。
 - 约束处理采用投影法：先截断到第一象限，再投影到单位圆盘。
+- `feasible` 表示最终投影后最优解是否可行；投影法下该比例通常为 100%。
+- `raw_candidate_feasible_rate` 表示投影前候选解本身可行的比例，用于比较算法生成可行候选的能力。
 - 同方差噪声基线默认使用可行域内异方差 `sigma(x)` 的蒙特卡洛均值。
 
 ## 报告

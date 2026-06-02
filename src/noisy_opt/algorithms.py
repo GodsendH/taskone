@@ -34,6 +34,17 @@ def _append_history(history: list[dict[str, float]], evaluator: NoisyObjective, 
     )
 
 
+def _raw_candidate_metadata(raw_candidate_count: int, raw_feasible_candidate_count: int) -> dict[str, float]:
+    rate = 0.0
+    if raw_candidate_count > 0:
+        rate = raw_feasible_candidate_count / raw_candidate_count
+    return {
+        "raw_candidate_count": raw_candidate_count,
+        "raw_feasible_candidate_count": raw_feasible_candidate_count,
+        "raw_candidate_feasible_rate": rate,
+    }
+
+
 def run_sa(
     evaluator: NoisyObjective,
     rng: np.random.Generator,
@@ -52,11 +63,16 @@ def run_sa(
     best_observed = current_y
     history: list[dict[str, float]] = []
     _append_history(history, evaluator, best_x)
+    raw_candidate_count = 0
+    raw_feasible_candidate_count = 0
 
     iteration = 0
     while evaluator.can_evaluate():
         temp = max(min_temp, initial_temp * (cooling_rate**iteration))
-        candidate_x = project_to_feasible(current_x + rng.normal(0.0, step_size, size=2))
+        raw_candidate = current_x + rng.normal(0.0, step_size, size=2)
+        raw_candidate_count += 1
+        raw_feasible_candidate_count += int(is_feasible(raw_candidate))
+        candidate_x = project_to_feasible(raw_candidate)
         candidate_y = evaluator.evaluate(candidate_x)
         delta = candidate_y - current_y
         if delta <= 0.0 or rng.random() < exp(-delta / max(temp, 1e-12)):
@@ -82,6 +98,7 @@ def run_sa(
             "cooling_rate": cooling_rate,
             "step_size": step_size,
             "min_temp": min_temp,
+            **_raw_candidate_metadata(raw_candidate_count, raw_feasible_candidate_count),
         },
     )
 
@@ -119,6 +136,8 @@ def run_ga(
 
     best_x = population[0].copy()
     best_observed = float("inf")
+    raw_candidate_count = 0
+    raw_feasible_candidate_count = 0
     for i in range(init_size):
         noisy_scores[i] = evaluator.evaluate(population[i])
         if noisy_scores[i] < best_observed:
@@ -155,7 +174,10 @@ def run_ga(
                 child = weight * parent_a + (1.0 - weight) * parent_b
             else:
                 child = parent_a.copy()
-            child = project_to_feasible(child + rng.normal(0.0, adaptive_step, size=2))
+            raw_child = child + rng.normal(0.0, adaptive_step, size=2)
+            raw_candidate_count += 1
+            raw_feasible_candidate_count += int(is_feasible(raw_child))
+            child = project_to_feasible(raw_child)
             child_score = evaluator.evaluate(child)
             new_population.append(child)
             new_scores.append(float(child_score))
@@ -190,6 +212,7 @@ def run_ga(
             "mutation_decay": mutation_decay,
             "min_mutation_step": min_mutation_step,
             "tournament_size": tournament_size,
+            **_raw_candidate_metadata(raw_candidate_count, raw_feasible_candidate_count),
         },
     )
 
@@ -303,6 +326,8 @@ def run_adaptive_resampling(
     reserve_evaluations = max(0, int(np.ceil(evaluator.budget * final_resample_fraction)))
     history: list[dict[str, float]] = []
     _append_history(history, evaluator, best_x)
+    raw_candidate_count = 0
+    raw_feasible_candidate_count = 0
 
     iteration = 0
     while evaluator.can_evaluate():
@@ -311,7 +336,10 @@ def run_adaptive_resampling(
 
         temp = max(1e-4, initial_temp * (cooling_rate**iteration))
         step = max(min_step, initial_step * np.sqrt(temp / max(initial_temp, 1e-12)))
-        candidate_x = project_to_feasible(current_x + rng.normal(0.0, step, size=2))
+        raw_candidate = current_x + rng.normal(0.0, step, size=2)
+        raw_candidate_count += 1
+        raw_feasible_candidate_count += int(is_feasible(raw_candidate))
+        candidate_x = project_to_feasible(raw_candidate)
         candidate_values = evaluator.evaluate_many(candidate_x, base_samples)
         if not candidate_values:
             break
@@ -378,6 +406,7 @@ def run_adaptive_resampling(
             "final_resample_fraction": final_resample_fraction,
             "final_resample_per_point": final_resample_per_point,
             "final_pool_used": final_pool_used,
+            **_raw_candidate_metadata(raw_candidate_count, raw_feasible_candidate_count),
         },
     )
 

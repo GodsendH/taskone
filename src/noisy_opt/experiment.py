@@ -40,6 +40,12 @@ DEFAULT_PARAMS = {
     },
 }
 
+RAW_CANDIDATE_KEYS = {
+    "raw_candidate_count",
+    "raw_feasible_candidate_count",
+    "raw_candidate_feasible_rate",
+}
+
 
 def run_single(
     algorithm: str,
@@ -66,6 +72,7 @@ def run_single(
 
 
 def result_to_summary_row(result: AlgorithmResult, run: int, noise_label: str = "hetero") -> dict:
+    metadata = result.metadata
     row = {
         "algorithm": result.algorithm,
         "run": run,
@@ -77,8 +84,11 @@ def result_to_summary_row(result: AlgorithmResult, run: int, noise_label: str = 
         "x2": float(result.best_x[1]),
         "feasible": int(result.feasible),
         "evaluations": int(result.evaluations),
+        "raw_candidate_count": int(metadata.get("raw_candidate_count", 0)),
+        "raw_feasible_candidate_count": int(metadata.get("raw_feasible_candidate_count", 0)),
+        "raw_candidate_feasible_rate": float(metadata.get("raw_candidate_feasible_rate", 0.0)),
     }
-    row.update({f"param_{k}": v for k, v in result.metadata.items()})
+    row.update({f"param_{k}": v for k, v in metadata.items() if k not in RAW_CANDIDATE_KEYS})
     return row
 
 

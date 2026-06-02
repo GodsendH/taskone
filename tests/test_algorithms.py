@@ -10,12 +10,20 @@ def _run(runner, budget=100):
     return runner(evaluator=evaluator, rng=rng, seed=42)
 
 
+def _assert_raw_candidate_metadata(result):
+    assert result.metadata["raw_candidate_count"] > 0
+    assert result.metadata["raw_feasible_candidate_count"] >= 0
+    assert result.metadata["raw_feasible_candidate_count"] <= result.metadata["raw_candidate_count"]
+    assert 0.0 <= result.metadata["raw_candidate_feasible_rate"] <= 1.0
+
+
 def test_sa_respects_budget_and_result_shape():
     result = _run(run_sa)
     assert result.evaluations == 100
     assert result.best_x.shape == (2,)
     assert result.feasible
     assert result.history
+    _assert_raw_candidate_metadata(result)
 
 
 def test_ga_respects_budget_and_result_shape():
@@ -24,6 +32,7 @@ def test_ga_respects_budget_and_result_shape():
     assert result.best_x.shape == (2,)
     assert result.feasible
     assert result.history
+    _assert_raw_candidate_metadata(result)
 
 
 def test_adaptive_resampling_respects_budget_and_result_shape():
@@ -37,6 +46,7 @@ def test_adaptive_resampling_respects_budget_and_result_shape():
     assert result.metadata["final_resample_fraction"] == 0.10
     assert result.metadata["final_resample_per_point"] == 6
     assert result.metadata["final_pool_used"] > 0
+    _assert_raw_candidate_metadata(result)
 
 
 def test_noisy_objective_resamples_each_call():

@@ -8,15 +8,33 @@ from scipy.stats import wilcoxon
 
 
 def summarize_by_algorithm(summary: pd.DataFrame) -> pd.DataFrame:
+    required_raw_columns = {
+        "raw_candidate_feasible_rate": float("nan"),
+        "raw_candidate_count": 0,
+        "raw_feasible_candidate_count": 0,
+    }
+    missing_raw_columns = [name for name in required_raw_columns if name not in summary.columns]
+    if missing_raw_columns:
+        summary = summary.copy()
+        for name in missing_raw_columns:
+            summary[name] = required_raw_columns[name]
+
     grouped = summary.groupby(["noise_label", "algorithm"], as_index=False)
     stats = grouped.agg(
         median_best_true_f=("best_true_f", "median"),
         q1_best_true_f=("best_true_f", lambda s: s.quantile(0.25)),
         q3_best_true_f=("best_true_f", lambda s: s.quantile(0.75)),
         feasible_rate=("feasible", "mean"),
+        raw_candidate_count=("raw_candidate_count", "sum"),
+        raw_feasible_candidate_count=("raw_feasible_candidate_count", "sum"),
+        raw_candidate_feasible_rate_mean=("raw_candidate_feasible_rate", "mean"),
+        raw_candidate_feasible_rate_median=("raw_candidate_feasible_rate", "median"),
         runs=("best_true_f", "count"),
     )
     stats["iqr_best_true_f"] = stats["q3_best_true_f"] - stats["q1_best_true_f"]
+    stats["raw_candidate_feasible_rate_overall"] = (
+        stats["raw_feasible_candidate_count"] / stats["raw_candidate_count"]
+    ).fillna(0.0)
     return stats[
         [
             "noise_label",
@@ -27,6 +45,11 @@ def summarize_by_algorithm(summary: pd.DataFrame) -> pd.DataFrame:
             "q1_best_true_f",
             "q3_best_true_f",
             "feasible_rate",
+            "raw_candidate_count",
+            "raw_feasible_candidate_count",
+            "raw_candidate_feasible_rate_overall",
+            "raw_candidate_feasible_rate_mean",
+            "raw_candidate_feasible_rate_median",
         ]
     ]
 
