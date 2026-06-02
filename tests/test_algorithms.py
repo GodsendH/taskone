@@ -33,6 +33,10 @@ def test_adaptive_resampling_respects_budget_and_result_shape():
     assert result.best_x.shape == (2,)
     assert result.feasible
     assert result.history
+    assert result.metadata["elite_pool_size"] == 6
+    assert result.metadata["final_resample_fraction"] == 0.10
+    assert result.metadata["final_resample_per_point"] == 6
+    assert result.metadata["final_pool_used"] > 0
 
 
 def test_noisy_objective_resamples_each_call():

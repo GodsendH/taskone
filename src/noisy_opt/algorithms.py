@@ -202,6 +202,76 @@ def _mean_and_var(values: list[float]) -> tuple[float, float]:
     return float(np.mean(values)), float(np.var(values, ddof=1))
 
 
+def _update_elite_pool(
+    pool: list[dict[str, Any]],
+    x: np.ndarray,
+    estimate: float,
+    max_size: int,
+    *,
+    distance_tol: float = 1e-3,
+) -> None:
+    if max_size <= 0:
+        return
+
+    candidate_x = x.copy()
+    candidate_estimate = float(estimate)
+    for entry in pool:
+        if np.linalg.norm(candidate_x - entry["x"]) <= distance_tol:
+            if candidate_estimate < entry["estimate"]:
+                entry["x"] = candidate_x
+                entry["estimate"] = candidate_estimate
+            break
+    else:
+        pool.append({"x": candidate_x, "estimate": candidate_estimate})
+
+    pool.sort(key=lambda item: item["estimate"])
+    del pool[max_size:]
+
+
+def _final_resample_elite_pool(
+    evaluator: NoisyObjective,
+    pool: list[dict[str, Any]],
+    fallback_x: np.ndarray,
+    fallback_estimate: float,
+    final_resample_per_point: int,
+) -> tuple[np.ndarray, float]:
+    if not pool or not evaluator.can_evaluate():
+        return fallback_x, float(fallback_estimate)
+
+    candidates = [
+        {"x": entry["x"].copy(), "estimate": float(entry["estimate"]), "values": []}
+        for entry in sorted(pool, key=lambda item: item["estimate"])
+    ]
+
+    target_samples = max(1, int(final_resample_per_point))
+    while evaluator.can_evaluate() and any(len(item["values"]) < target_samples for item in candidates):
+        for item in candidates:
+            if not evaluator.can_evaluate():
+                break
+            if len(item["values"]) < target_samples:
+                item["values"].extend(evaluator.evaluate_many(item["x"], 1))
+
+    index = 0
+    while evaluator.can_evaluate() and candidates:
+        item = candidates[index % len(candidates)]
+        item["values"].extend(evaluator.evaluate_many(item["x"], 1))
+        index += 1
+
+    best_x = fallback_x.copy()
+    best_estimate = float(fallback_estimate)
+    found_fresh_estimate = False
+    for item in candidates:
+        if not item["values"]:
+            continue
+        estimate = float(np.mean(item["values"]))
+        if not found_fresh_estimate or estimate < best_estimate:
+            best_x = item["x"].copy()
+            best_estimate = estimate
+            found_fresh_estimate = True
+
+    return best_x, best_estimate
+
+
 def run_adaptive_resampling(
     evaluator: NoisyObjective,
     rng: np.random.Generator,
@@ -214,6 +284,9 @@ def run_adaptive_resampling(
     base_samples: int = 2,
     max_samples: int = 8,
     ambiguity_z: float = 1.0,
+    elite_pool_size: int = 6,
+    final_resample_fraction: float = 0.10,
+    final_resample_per_point: int = 6,
 ) -> AlgorithmResult:
     """Adaptive noise-tolerant search with resampling and SA-style acceptance."""
 
@@ -225,11 +298,17 @@ def run_adaptive_resampling(
 
     best_x = current_x.copy()
     best_estimate = current_mean
+    elite_pool: list[dict[str, Any]] = []
+    _update_elite_pool(elite_pool, best_x, best_estimate, elite_pool_size)
+    reserve_evaluations = max(0, int(np.ceil(evaluator.budget * final_resample_fraction)))
     history: list[dict[str, float]] = []
     _append_history(history, evaluator, best_x)
 
     iteration = 0
     while evaluator.can_evaluate():
+        if elite_pool and reserve_evaluations > 0 and evaluator.remaining <= reserve_evaluations:
+            break
+
         temp = max(1e-4, initial_temp * (cooling_rate**iteration))
         step = max(min_step, initial_step * np.sqrt(temp / max(initial_temp, 1e-12)))
         candidate_x = project_to_feasible(current_x + rng.normal(0.0, step, size=2))
@@ -263,9 +342,20 @@ def run_adaptive_resampling(
         if current_mean < best_estimate:
             best_estimate = current_mean
             best_x = current_x.copy()
+            _update_elite_pool(elite_pool, best_x, best_estimate, elite_pool_size)
 
         _append_history(history, evaluator, best_x)
         iteration += 1
+
+    final_pool_used = len(elite_pool)
+    best_x, best_estimate = _final_resample_elite_pool(
+        evaluator,
+        elite_pool,
+        best_x,
+        best_estimate,
+        final_resample_per_point,
+    )
+    _append_history(history, evaluator, best_x)
 
     return AlgorithmResult(
         algorithm="ARS",
@@ -284,6 +374,10 @@ def run_adaptive_resampling(
             "base_samples": base_samples,
             "max_samples": max_samples,
             "ambiguity_z": ambiguity_z,
+            "elite_pool_size": elite_pool_size,
+            "final_resample_fraction": final_resample_fraction,
+            "final_resample_per_point": final_resample_per_point,
+            "final_pool_used": final_pool_used,
         },
     )
 

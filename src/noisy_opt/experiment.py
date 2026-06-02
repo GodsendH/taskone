@@ -34,6 +34,9 @@ DEFAULT_PARAMS = {
         "base_samples": 2,
         "max_samples": 8,
         "ambiguity_z": 1.0,
+        "elite_pool_size": 6,
+        "final_resample_fraction": 0.10,
+        "final_resample_per_point": 6,
     },
 }
 

@@ -1,4 +1,4 @@
 noise_label,algorithm_a,algorithm_b,paired_runs,wilcoxon_statistic,p_value
-hetero,ARS,GA,50,579.0,0.5786292137562761
-hetero,ARS,SA,50,395.0,0.01855822259070905
+hetero,ARS,GA,50,451.0,0.07237748012944856
+hetero,ARS,SA,50,277.0,0.0003378810943459598
 hetero,GA,SA,50,405.0,0.02420949942225903
